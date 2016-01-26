@@ -2,13 +2,19 @@ package macrobase.analysis;
 
 import com.google.common.base.Stopwatch;
 
+import com.google.common.collect.Sets;
 import macrobase.analysis.outlier.MAD;
 import macrobase.analysis.outlier.MinCovDet;
 import macrobase.analysis.outlier.OutlierDetector;
 import macrobase.analysis.outlier.ZScore;
 import macrobase.analysis.result.AnalysisResult;
+import macrobase.analysis.summary.compare.CubingComparer;
+import macrobase.analysis.summary.compare.DecisionTreeComparer;
+import macrobase.analysis.summary.itemset.Apriori;
+import macrobase.analysis.summary.itemset.FPGrowth;
 import macrobase.analysis.summary.itemset.FPGrowthEmerging;
 import macrobase.analysis.summary.itemset.result.ItemsetResult;
+import macrobase.analysis.summary.result.DatumWithScore;
 import macrobase.datamodel.Datum;
 import macrobase.ingest.DatumEncoder;
 import macrobase.ingest.SQLLoader;
@@ -65,40 +71,89 @@ public class BatchAnalyzer extends BaseAnalyzer {
         }
         sw.stop();
 
-        long classifyTime = sw.elapsed(TimeUnit.MILLISECONDS);
-        sw.reset();
+        List<Set<Integer>> in_txns = new ArrayList<>();
+        for(DatumWithScore d : or.getInliers()) {
+            in_txns.add(Sets.newHashSet(d.getDatum().getAttributes()));
+        }
+        List<Set<Integer>> out_txns = new ArrayList<>();
+        for(DatumWithScore d : or.getOutliers()) {
+            out_txns.add(Sets.newHashSet(d.getDatum().getAttributes()));
+        }
 
-        // SUMMARY
+        final int iterations = 5;
 
-        @SuppressWarnings("unused")
-		final int supportCountRequired = (int) MIN_SUPPORT*or.getOutliers().size();
+        for(int i = 0; i < iterations; ++i) {
+            sw.start();
 
-        final int inlierSize = or.getInliers().size();
-        final int outlierSize = or.getOutliers().size();
+            FPGrowthEmerging fpg = new FPGrowthEmerging();
 
-        log.debug("Starting summarization...");
+            fpg.getEmergingItemsetsWithMinSupport(or.getInliers(),
+                                                  or.getOutliers(),
+                                                  .01,
+                                                  2,
+                                                  encoder);
+            sw.stop();
+            log.debug("fpge took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+            sw.reset();
 
-        sw.start();
-        FPGrowthEmerging fpg = new FPGrowthEmerging();
-        List<ItemsetResult> isr = fpg.getEmergingItemsetsWithMinSupport(or.getInliers(),
-                                                                        or.getOutliers(),
-                                                                        MIN_SUPPORT,
-                                                                        MIN_INLIER_RATIO,
-                                                                        encoder);
-        sw.stop();
-        tsw.stop();
-        
-        double tuplesPerSecond = ((double) data.size()) / ((double) tsw.elapsed(TimeUnit.MICROSECONDS));
-        tuplesPerSecond *= 1000000;
-        
-        long summarizeTime = sw.elapsed(TimeUnit.MILLISECONDS);
-        sw.reset();
-        log.debug("...ended summarization (time: {}ms)!", summarizeTime);
 
-        log.debug("Number of itemsets: {}", isr.size());
-        log.debug("...ended total (time: {}ms)!", (tsw.elapsed(TimeUnit.MICROSECONDS) / 1000) + 1);
-        log.debug("Tuples / second = {} tuples / second", tuplesPerSecond);
+            System.gc();
+        }
+            for(int i = 0; i < iterations; ++i) {
 
-        return new AnalysisResult(outlierSize, inlierSize, loadTime, classifyTime, summarizeTime, isr);
+
+                sw.start();
+                DecisionTreeComparer dtc = new DecisionTreeComparer();
+                dtc.compare(or, 100);
+                sw.stop();
+                log.debug("dtc took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+                sw.reset();
+
+                System.gc();
+
+            }
+            for(int i = 0; i < iterations; ++i) {
+
+            sw.start();
+            FPGrowth out_fpg = new FPGrowth();
+            out_fpg.getItemsets(out_txns, .01);
+            FPGrowth in_fpg = new FPGrowth();
+            in_fpg.getItemsets(in_txns, .01 / (out_txns.size()));
+            sw.stop();
+            log.debug("fpg took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+            sw.reset();
+
+            }
+        for(int i = 0; i < iterations; ++i) {
+
+
+            System.gc();
+
+            sw.start();
+            Apriori out_apriori = new Apriori();
+            out_apriori.getItemsets(out_txns, .01);
+            Apriori in_apriori = new Apriori();
+            in_apriori.getItemsets(in_txns, .01);
+            sw.stop();
+            log.debug("apriori took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+            sw.reset();
+
+            System.gc();
+
+        }
+        for(int i = 0; i < iterations; ++i) {
+
+            sw.start();
+            CubingComparer cub = new CubingComparer();
+            cub.compare(or);
+            sw.stop();
+            log.debug("cube took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+            sw.reset();
+
+            System.gc();
+
+        }
+
+        return null;
     }
 }

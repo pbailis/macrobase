@@ -106,6 +106,8 @@ public class FPGrowth {
                                           final double transactionCount) {
                 incrementCount(transactionCount);
 
+                //log.info("{} {}", currentIndex, fullTransaction.size());
+
                 if(currentIndex == fullTransaction.size()) {
                     return;
                 }
@@ -170,6 +172,10 @@ public class FPGrowth {
                 }
             }
 
+            sortFrequentItems();
+        }
+
+        private void sortFrequentItems() {
             // we have to materialize a canonical order so that items with equal counts
             // are consistently ordered when they are sorted during transaction insertion
             List<Map.Entry<Integer, Double>> sortedItemCounts = Lists.newArrayList(frequentItemCounts.entrySet());
@@ -207,10 +213,21 @@ public class FPGrowth {
         }
 
         public void insertDatum(List<DatumWithScore> datums) {
+            int cnt = 0;
             for(DatumWithScore d : datums) {
                 List<Integer> filtered = d.getDatum().getAttributes().stream().filter(
                         i -> frequentItemCounts.containsKey(i)).collect(Collectors.toList());
-                filtered.sort((i1, i2) -> frequentItemOrder.get(i2).compareTo(frequentItemOrder.get(i1)));
+                //log.debug("cnt {}, size {}", cnt, filtered.size());
+
+                cnt += 1;
+                if(filtered.size() == 0) {
+                    continue;
+                }
+
+                if(filtered.size() > 1)
+                    filtered.sort((i1, i2) -> frequentItemOrder.get(i2).compareTo(frequentItemOrder.get(i1)));
+
+                //log.debug("INSERTING!");
                 root.insertTransaction(filtered, 0, 1);
             }
         }
@@ -252,18 +269,19 @@ public class FPGrowth {
                 int itemsToFind = plist.size();
 
                 while(curNode != null) {
+                    //log.debug("{} {}", itemsToFind, plist);
                     if(pattern.contains(curNode.getItem())) {
                         itemsToFind -= 1;
                     }
-                    curNode = curNode.getParent();
 
                     if(itemsToFind == 0) {
-                        count += pathHead.count;
+                        count += curNode.count;
                         break;
                     }
 
-                    curNode = curNode.getNextLink();
+                    curNode = curNode.getParent();
                 }
+                pathHead = pathHead.getNextLink();
             }
 
             return count;
@@ -408,15 +426,26 @@ public class FPGrowth {
     }
 
     public List<ItemsetWithCount> getItemsets(List<Set<Integer>> transactions,
-                                           Double support) {
+                                              Double support) {
+        return getItemsets(transactions, null, support);
+    }
+
+    public List<ItemsetWithCount> getItemsets(List<Set<Integer>> transactions,
+                                              Map<Integer, Double> initialCounts,
+                                              Double support) {
         FPTree fp = new FPTree();
         int countRequiredForSupport = (int)(support*transactions.size());
-        log.debug("count required: {}", countRequiredForSupport);
+        log.debug("count required: {}, {}", countRequiredForSupport, transactions.size());
 
         long st = System.currentTimeMillis();
 
         Timer.Context context = singleItemCounts.time();
-        fp.insertFrequentItems(transactions, countRequiredForSupport);
+        if(initialCounts == null) {
+            fp.insertFrequentItems(transactions, countRequiredForSupport);
+        } else {
+            fp.frequentItemCounts = initialCounts;
+            fp.sortFrequentItems();
+        }
         context.stop();
         context = insertTransactions.time();
         fp.insertTransactions(transactions);
@@ -444,18 +473,25 @@ public class FPGrowth {
             Map<Integer, Double> initialCounts,
             Set<Integer> targetItems,
             List<ItemsetWithCount> toCount) {
+        long st = System.currentTimeMillis();
+
         FPTree countTree = new FPTree();
-        for(Integer i : targetItems) {
-            initialCounts.remove(i);
+        Map<Integer, Double> frequentCounts = new HashMap<>();
+
+        for (Integer i : targetItems) {
+            frequentCounts.put(i, initialCounts.get(i));
         }
 
-        countTree.setFrequentCounts(initialCounts);
+        countTree.setFrequentCounts(frequentCounts);
         countTree.insertDatum(transactions);
 
         List<ItemsetWithCount> ret = new ArrayList<>();
         for(ItemsetWithCount c : toCount) {
             ret.add(new ItemsetWithCount(c.getItems(), countTree.getSupport(c.getItems())));
         }
+
+        long en = System.currentTimeMillis();
+        log.debug("FPTree counts: {}", en-st);
 
         return ret;
     }
