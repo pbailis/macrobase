@@ -88,7 +88,8 @@ public abstract class OutlierDetector {
         int splitPoint = (int)(data.size()*percentile);
         List<DatumWithScore> scoredData = scoreBatch(data);
 
-        scoredData.sort((a, b) -> a.getScore().compareTo(b.getScore()));
+        scoredData.sort((a, b) -> a.getScore().equals(b.getScore()) ? a.getDatum().getAttributes().get(0).compareTo(a.getDatum().getAttributes().get(0)) :
+                       a.getScore().compareTo(b.getScore()));
         sw.stop();
         long scoringTime = sw.elapsed(TimeUnit.MILLISECONDS);
         log.debug("...ended scoring (time: {}ms!", scoringTime);
