@@ -79,7 +79,7 @@ public class BatchAnalyzer extends BaseAnalyzer {
             out_txns.add(Sets.newHashSet(d.getDatum().getAttributes()));
         }
 
-        final int iterations = 5;
+        final int iterations = 10;
         final int timeout_min = 5;
 
         for(int i = 0; i < iterations; ++i) {
