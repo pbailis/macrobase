@@ -136,12 +136,38 @@ public class BatchAnalyzer extends BaseAnalyzer {
 
 
                 sw.stop();
-                log.debug("dtc took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+                log.debug("dtc100 took {}", sw.elapsed(TimeUnit.MICROSECONDS));
                 sw.reset();
 
                 System.gc();
 
             }
+
+        for(int i = 0; i < iterations; ++i) {
+
+
+            sw.start();
+
+            Future r = st.submit((Runnable) () -> {
+                DecisionTreeComparer dtc = new DecisionTreeComparer();
+                dtc.compare(or, 10);
+            });
+
+            try {
+                r.get(timeout_min, TimeUnit.MINUTES);
+            } catch (Exception e) {
+                log.debug("caught {}", e);
+            }
+
+
+            sw.stop();
+            log.debug("dtc10 took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+            sw.reset();
+
+            System.gc();
+
+        }
+
             for(int i = 0; i < iterations; ++i) {
 
             sw.start();
