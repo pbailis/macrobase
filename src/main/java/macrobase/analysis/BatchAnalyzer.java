@@ -155,19 +155,31 @@ final double pctile = .75;
 
         }
 
-        /*
          gold = new ZScore();
         gold.train(data);
         goldResult = gold.classifyBatchByPercentile(data, pctile);
         goldOutliers = Sets.newHashSet(
                 goldResult.getOutliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
         goldInliers = Sets.newHashSet(goldResult.getInliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
-*/
+
+        goldTotal = 0;
+        for(DatumWithScore d : goldResult.getInliers()) {
+            goldScores.put(d.getDatum(), d.getScore());
+            goldTotal += d.getScore();
+        }
+
+        for(DatumWithScore d : goldResult.getOutliers()) {
+            goldScores.put(d.getDatum(), d.getScore());
+            goldTotal += d.getScore();
+        }
+
 
         for(Double h : l) {
             List<Double> precisions = new ArrayList<>();
             List<Double> recalls = new ArrayList<>();
             List<Double> times = new ArrayList<>();
+            List<Double> rmses = new ArrayList<>();
+
 
             for(int i = 0; i < ITERATIONS; ++i) {
                 OutlierDetector detector = new ZScore();
@@ -188,6 +200,18 @@ final double pctile = .75;
                 Set<Datum> curInliers = Sets.newHashSet(
                         curResult.getInliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
 
+                double sum_squares = 0;
+                for(DatumWithScore d : curResult.getInliers()) {
+                    sum_squares += Math.pow(goldScores.get(d.getDatum()) - d.getScore(), 2);
+                }
+                for(DatumWithScore d : curResult.getOutliers()) {
+                    sum_squares += Math.pow(goldScores.get(d.getDatum()) - d.getScore(), 2);
+                }
+
+                double rmse = Math.sqrt(sum_squares / data.size());
+
+                rmses.add(rmse);
+
                 double precision = (double) Sets.intersection(curOutliers, goldOutliers).size() / curOutliers.size();
                 double recall = (double) Sets.intersection(curOutliers, goldOutliers).size() / goldOutliers.size();
                 precisions.add(precision);
@@ -197,10 +221,11 @@ final double pctile = .75;
             double avgp = precisions.stream().reduce((a, b) -> a+b).get()/precisions.size();
             double avgr = recalls.stream().reduce((a, b) -> a+b).get()/recalls.size();
             double avgtime = times.stream().reduce((a, b) -> a+b).get()/times.size();
+            double avgrmse = rmses.stream().reduce((a, b) -> a+b).get()/rmses.size();
 
 
-            log.info("ZSCORE h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}", h, avgp, avgr, avgtime);
-            log.info("ZSCORE h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}", h, precisions, recalls, times);
+            log.info("h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}, avgrmse: {}", h, avgp, avgr, avgtime, avgrmse);
+            log.info("h: {}, precisions: {}, recalls: {}, times:{}, rmses: {}", h, precisions, recalls, times, rmses);
 
 
 
