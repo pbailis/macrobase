@@ -8,8 +8,12 @@ import com.codahale.metrics.Timer;
 
 import macrobase.MacroBase;
 import macrobase.datamodel.Datum;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ZScore extends OutlierDetector {
+    private static final Logger log = LoggerFactory.getLogger(ZScore.class);
+
     private double mean;
     private double std;
 
@@ -35,6 +39,8 @@ public class ZScore extends OutlierDetector {
         }
         std = Math.sqrt(ss / data.size());
         context.stop();
+
+        log.info("mean is {} std is {}", mean, std);
     }
 
     @Override

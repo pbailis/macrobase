@@ -1,13 +1,13 @@
 taskName: testTasks
 targetAttributes: [userid]
-targetLowMetrics: [data_count_minutes]
-targetHighMetrics: []
+targetLowMetrics: []
+targetHighMetrics: [data_count_minutes]
 
 # MAD, MCD, ZSCORE
 outlierDetectorType: MCD
 
 dbUrl: postgres
-baseQuery: SELECT * FROM mapmatch_history H, sf_datasets D WHERE H.dataset_id = D.id LIMIT 100000;
+baseQuery: SELECT * FROM mapmatch_history H, sf_datasets D WHERE H.dataset_id = D.id LIMIT 1000000;
 
 minSupport: 0.01
 minInlierRatio: 1

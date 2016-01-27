@@ -2,6 +2,8 @@ package macrobase.analysis;
 
 import com.google.common.base.Stopwatch;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import macrobase.analysis.outlier.MAD;
 import macrobase.analysis.outlier.MinCovDet;
 import macrobase.analysis.outlier.OutlierDetector;
@@ -21,6 +23,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class BatchAnalyzer extends BaseAnalyzer {
     private static final Logger log = LoggerFactory.getLogger(BatchAnalyzer.class);
@@ -55,6 +58,130 @@ public class BatchAnalyzer extends BaseAnalyzer {
 
         sw.start();
         int metricsDimensions = lowMetrics.size() + highMetrics.size();
+
+final double pctile = .75;
+
+        OutlierDetector gold = new MAD();
+        gold.train(data);
+        OutlierDetector.BatchResult goldResult = gold.classifyBatchByPercentile(data, pctile);
+        Set<Datum> goldOutliers = Sets.newHashSet(
+                goldResult.getOutliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
+        Set<Datum> goldInliers = Sets.newHashSet(goldResult.getInliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
+
+
+        double[] l = {.00001, .0001, .001, .01, .1, .5, 1};
+        final int ITERATIONS = 10;
+
+        for(Double h : l) {
+            List<Double> precisions = new ArrayList<>();
+            List<Double> recalls = new ArrayList<>();
+            List<Double> times = new ArrayList<>();
+
+            for(int i = 0; i < ITERATIONS; ++i) {
+                OutlierDetector detector = new MAD();
+                Random random = new Random();
+                Collections.shuffle(data);
+
+                List<Datum> sample = data.subList(0, (int) (data.size() * h));
+
+                log.debug("Sample size is {}", sample.size());
+
+                sw.reset();
+                sw.start();
+                detector.train(sample);
+                sw.stop();
+                times.add((double)sw.elapsed(TimeUnit.MICROSECONDS));
+
+                OutlierDetector.BatchResult curResult = detector.classifyBatchByPercentile(data, pctile);
+                Set<Datum> curOutliers = Sets.newHashSet(
+                        curResult.getOutliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
+                Set<Datum> curInliers = Sets.newHashSet(
+                        curResult.getInliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
+
+
+                log.info("minscore: {} {}",
+                         curResult.getOutliers().get(0).getScore(),
+                         goldResult.getOutliers().get(0).getScore());
+
+
+                log.info("maxscore: {} {}",
+                         curResult.getOutliers().get(curOutliers.size()-1).getScore(),
+                         goldResult.getOutliers().get(goldOutliers.size()-1).getScore());
+
+                double precision = (double) Sets.intersection(curOutliers, goldOutliers).size() / curOutliers.size();
+                log.info("intersection size is {} {} {}", Sets.intersection(curOutliers, goldOutliers).size(), curOutliers.size(), goldOutliers.size());
+                double recall = (double) Sets.intersection(curOutliers, goldOutliers).size() / goldOutliers.size();
+                precisions.add(precision);
+                recalls.add(recall);
+            }
+
+            double avgp = precisions.stream().reduce((a, b) -> a+b).get()/precisions.size();
+            double avgr = recalls.stream().reduce((a, b) -> a+b).get()/recalls.size();
+            double avgtime = times.stream().reduce((a, b) -> a+b).get()/times.size();
+
+
+            log.info("h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}", h, avgp, avgr, avgtime);
+            log.info("h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}", h, precisions, recalls, times);
+
+
+
+        }
+
+        /*
+         gold = new ZScore();
+        gold.train(data);
+        goldResult = gold.classifyBatchByPercentile(data, pctile);
+        goldOutliers = Sets.newHashSet(
+                goldResult.getOutliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
+        goldInliers = Sets.newHashSet(goldResult.getInliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
+*/
+
+        for(Double h : l) {
+            List<Double> precisions = new ArrayList<>();
+            List<Double> recalls = new ArrayList<>();
+            List<Double> times = new ArrayList<>();
+
+            for(int i = 0; i < ITERATIONS; ++i) {
+                OutlierDetector detector = new ZScore();
+                Random random = new Random();
+                Collections.shuffle(data);
+
+                List<Datum> sample = data.subList(0, (int) (data.size() * h));
+
+                sw.reset();
+                sw.start();
+                detector.train(sample);
+                sw.stop();
+                times.add((double)sw.elapsed(TimeUnit.MICROSECONDS));
+
+                OutlierDetector.BatchResult curResult = detector.classifyBatchByPercentile(data, pctile);
+                Set<Datum> curOutliers = Sets.newHashSet(
+                        curResult.getOutliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
+                Set<Datum> curInliers = Sets.newHashSet(
+                        curResult.getInliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
+
+                double precision = (double) Sets.intersection(curOutliers, goldOutliers).size() / curOutliers.size();
+                double recall = (double) Sets.intersection(curOutliers, goldOutliers).size() / goldOutliers.size();
+                precisions.add(precision);
+                recalls.add(recall);
+            }
+
+            double avgp = precisions.stream().reduce((a, b) -> a+b).get()/precisions.size();
+            double avgr = recalls.stream().reduce((a, b) -> a+b).get()/recalls.size();
+            double avgtime = times.stream().reduce((a, b) -> a+b).get()/times.size();
+
+
+            log.info("ZSCORE h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}", h, avgp, avgr, avgtime);
+            log.info("ZSCORE h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}", h, precisions, recalls, times);
+
+
+
+        }
+
+
+        if(true)
+            return null;
+
         OutlierDetector detector = constructDetector(metricsDimensions);
 
         OutlierDetector.BatchResult or;

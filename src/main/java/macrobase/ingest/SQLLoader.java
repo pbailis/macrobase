@@ -64,6 +64,8 @@ public abstract class SQLLoader {
             factory.setPassword(this.dbPassword);
         }
 
+        log.info("user is {} password is {} connection is {}", dbUser, dbPassword, pgUrl);
+
         source = factory.build(MacroBase.metrics, "postgres");
         connection = source.getConnection();
     }
@@ -192,6 +194,7 @@ public abstract class SQLLoader {
             ret.add(new Datum(attrList, metricVec));
         }
 
+        /*
         // normalize data
         for(Datum d : ret) {
             // ebeDivide returns a copy; avoid a copy at the expense of ugly code
@@ -210,6 +213,7 @@ public abstract class SQLLoader {
                 metrics.setEntry(dim, (cur - dimMin)/(dimMax - dimMin));
             }
         }
+        */
 
         return ret;
     }

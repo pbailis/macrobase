@@ -75,12 +75,12 @@ public abstract class OutlierDetector {
     public BatchResult classifyBatchByPercentile(List<Datum> data,
                                                  double percentile) {
     	Stopwatch sw = Stopwatch.createUnstarted();
-    	log.debug("Starting training...");
-    	sw.start();
-        train(data);
-        sw.stop();
-        long trainTime = sw.elapsed(TimeUnit.MILLISECONDS);
-        log.debug("...ended training (time: {}ms)!", trainTime);
+    	//log.debug("Starting training...");
+    	//sw.start();
+        //train(data);
+        //sw.stop();
+        //long trainTime = sw.elapsed(TimeUnit.MILLISECONDS);
+        //log.debug("...ended training (time: {}ms)!", trainTime);
         
         log.debug("Starting scoring...");
         sw.reset();
