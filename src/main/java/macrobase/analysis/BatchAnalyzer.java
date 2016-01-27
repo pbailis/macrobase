@@ -11,6 +11,7 @@ import macrobase.analysis.outlier.ZScore;
 import macrobase.analysis.result.AnalysisResult;
 import macrobase.analysis.summary.itemset.FPGrowthEmerging;
 import macrobase.analysis.summary.itemset.result.ItemsetResult;
+import macrobase.analysis.summary.result.DatumWithScore;
 import macrobase.datamodel.Datum;
 import macrobase.ingest.DatumEncoder;
 import macrobase.ingest.SQLLoader;
@@ -69,6 +70,18 @@ final double pctile = .75;
         Set<Datum> goldInliers = Sets.newHashSet(goldResult.getInliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
 
 
+        Map<Datum, Double> goldScores = new HashMap<>();
+        double goldTotal = 0;
+        for(DatumWithScore d : goldResult.getInliers()) {
+            goldScores.put(d.getDatum(), d.getScore());
+            goldTotal += d.getScore();
+        }
+
+        for(DatumWithScore d : goldResult.getOutliers()) {
+            goldScores.put(d.getDatum(), d.getScore());
+            goldTotal += d.getScore();
+        }
+
         double[] l = {.00001, .0001, .001, .01, .1, .5, 1};
         final int ITERATIONS = 10;
 
@@ -76,6 +89,8 @@ final double pctile = .75;
             List<Double> precisions = new ArrayList<>();
             List<Double> recalls = new ArrayList<>();
             List<Double> times = new ArrayList<>();
+            List<Double> rmses = new ArrayList<>();
+
 
             for(int i = 0; i < ITERATIONS; ++i) {
                 OutlierDetector detector = new MAD();
@@ -98,6 +113,17 @@ final double pctile = .75;
                 Set<Datum> curInliers = Sets.newHashSet(
                         curResult.getInliers().stream().map(a -> a.getDatum()).collect(Collectors.toList()));
 
+                double sum_squares = 0;
+                for(DatumWithScore d : curResult.getInliers()) {
+                    sum_squares += Math.pow(goldScores.get(d.getDatum()) - d.getScore(), 2);
+                }
+                for(DatumWithScore d : curResult.getOutliers()) {
+                    sum_squares += Math.pow(goldScores.get(d.getDatum()) - d.getScore(), 2);
+                }
+
+                double rmse = Math.sqrt(sum_squares/data.size());
+
+                log.info("RMSE: {}", rmse);
 
                 log.info("minscore: {} {}",
                          curResult.getOutliers().get(0).getScore(),
@@ -113,15 +139,17 @@ final double pctile = .75;
                 double recall = (double) Sets.intersection(curOutliers, goldOutliers).size() / goldOutliers.size();
                 precisions.add(precision);
                 recalls.add(recall);
+                rmses.add(rmse);
             }
 
             double avgp = precisions.stream().reduce((a, b) -> a+b).get()/precisions.size();
             double avgr = recalls.stream().reduce((a, b) -> a+b).get()/recalls.size();
             double avgtime = times.stream().reduce((a, b) -> a+b).get()/times.size();
+            double avgrmse = rmses.stream().reduce((a, b) -> a+b).get()/rmses.size();
 
 
-            log.info("h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}", h, avgp, avgr, avgtime);
-            log.info("h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}", h, precisions, recalls, times);
+            log.info("h: {}, avgprecision: {}, avgrecall: {}, avgtime:{}, avgrmse: {}", h, avgp, avgr, avgtime, avgrmse);
+            log.info("h: {}, precisions: {}, recalls: {}, times:{}, rmses: {}", h, precisions, recalls, times, rmses);
 
 
 
