@@ -425,16 +425,22 @@ public class FPGrowth {
         }
     }
 
-    public List<ItemsetWithCount> getItemsets(List<Set<Integer>> transactions,
-                                              Double support) {
-        return getItemsets(transactions, null, support);
+    public List<ItemsetWithCount> getItemsetsSupportRatio(List<Set<Integer>> transactions,
+                                                          Double support) {
+        return getItemsetsSupportRatio(transactions, null, support);
     }
 
-    public List<ItemsetWithCount> getItemsets(List<Set<Integer>> transactions,
-                                              Map<Integer, Double> initialCounts,
-                                              Double support) {
+    public List<ItemsetWithCount> getItemsetsSupportRatio(List<Set<Integer>> transactions,
+                                                          Map<Integer, Double> initialCounts,
+                                                          Double support) {
+        return getItemsetsSupportCount(transactions, initialCounts, transactions.size()*support);
+    }
+        //hack back-port from master
+    public List<ItemsetWithCount> getItemsetsSupportCount(List<Set<Integer>> transactions,
+            Map<Integer, Double> initialCounts,
+            Double supportCount) {
         FPTree fp = new FPTree();
-        int countRequiredForSupport = (int)(support*transactions.size());
+        int countRequiredForSupport = supportCount.intValue();
         log.debug("count required: {}, {}", countRequiredForSupport, transactions.size());
 
         long st = System.currentTimeMillis();

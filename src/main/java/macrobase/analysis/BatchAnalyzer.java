@@ -3,11 +3,7 @@ package macrobase.analysis;
 import com.google.common.base.Stopwatch;
 
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.SimpleTimeLimiter;
-import macrobase.analysis.outlier.MAD;
-import macrobase.analysis.outlier.MinCovDet;
 import macrobase.analysis.outlier.OutlierDetector;
-import macrobase.analysis.outlier.ZScore;
 import macrobase.analysis.result.AnalysisResult;
 import macrobase.analysis.summary.compare.CubingComparer;
 import macrobase.analysis.summary.compare.DataXRay;
@@ -15,13 +11,11 @@ import macrobase.analysis.summary.compare.DecisionTreeComparer;
 import macrobase.analysis.summary.itemset.Apriori;
 import macrobase.analysis.summary.itemset.FPGrowth;
 import macrobase.analysis.summary.itemset.FPGrowthEmerging;
-import macrobase.analysis.summary.itemset.result.ItemsetResult;
 import macrobase.analysis.summary.result.DatumWithScore;
 import macrobase.datamodel.Datum;
 import macrobase.ingest.DatumEncoder;
 import macrobase.ingest.SQLLoader;
 
-import macrobase.runtime.standalone.BaseStandaloneConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -152,9 +146,9 @@ public class BatchAnalyzer extends BaseAnalyzer {
 
             sw.start();
             FPGrowth out_fpg = new FPGrowth();
-            out_fpg.getItemsets(out_txns, .001);
+            out_fpg.getItemsetsSupportRatio(out_txns, .001);
             FPGrowth in_fpg = new FPGrowth();
-            in_fpg.getItemsets(in_txns, .001 / 3);
+            in_fpg.getItemsetsSupportRatio(in_txns, .001 / 3);
             sw.stop();
             log.debug("fpg took {}", sw.elapsed(TimeUnit.MICROSECONDS));
             sw.reset();

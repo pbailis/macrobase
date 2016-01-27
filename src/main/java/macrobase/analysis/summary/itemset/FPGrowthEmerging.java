@@ -96,7 +96,7 @@ public class FPGrowthEmerging {
 
         context = outlierFPGrowth.time();
         FPGrowth fpg = new FPGrowth();
-        List<ItemsetWithCount> iwc = fpg.getItemsets(outlierTransactions, supportedCounts, minSupport);
+        List<ItemsetWithCount> iwc = fpg.getItemsetsSupportCount(outlierTransactions, supportedCounts, outliers.size()*minSupport);
         context.stop();
 
         context = inlierRatio.time();
