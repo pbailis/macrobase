@@ -3,6 +3,7 @@ package macrobase.analysis;
 import com.google.common.base.Stopwatch;
 
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.SimpleTimeLimiter;
 import macrobase.analysis.outlier.MAD;
 import macrobase.analysis.outlier.MinCovDet;
 import macrobase.analysis.outlier.OutlierDetector;
@@ -27,6 +28,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class BatchAnalyzer extends BaseAnalyzer {
@@ -82,6 +86,7 @@ public class BatchAnalyzer extends BaseAnalyzer {
         }
 
         final int iterations = 5;
+        final int timeout_min = 5;
 
         for(int i = 0; i < iterations; ++i) {
 
@@ -116,12 +121,26 @@ public class BatchAnalyzer extends BaseAnalyzer {
 
             System.gc();
         }
-            for(int i = 0; i < iterations; ++i) {
+
+        ExecutorService st = Executors.newCachedThreadPool();
+
+        for(int i = 0; i < iterations; ++i) {
 
 
                 sw.start();
-                DecisionTreeComparer dtc = new DecisionTreeComparer();
-                dtc.compare(or, 100);
+
+                Future r = st.submit((Runnable) () -> {
+                    DecisionTreeComparer dtc = new DecisionTreeComparer();
+                    dtc.compare(or, 100);
+                });
+
+                try {
+                    r.get(timeout_min, TimeUnit.MINUTES);
+                } catch (Exception e) {
+                    log.debug("caught {}", e);
+                }
+
+
                 sw.stop();
                 log.debug("dtc took {}", sw.elapsed(TimeUnit.MICROSECONDS));
                 sw.reset();
@@ -141,16 +160,27 @@ public class BatchAnalyzer extends BaseAnalyzer {
             sw.reset();
 
             }
+
+
         for(int i = 0; i < iterations; ++i) {
 
 
             System.gc();
 
             sw.start();
-            Apriori out_apriori = new Apriori();
-            out_apriori.getItemsets(out_txns, .001);
-            Apriori in_apriori = new Apriori();
-            in_apriori.getItemsets(in_txns, .001);
+            Future r = st.submit((Runnable) () -> {
+                Apriori out_apriori = new Apriori();
+                out_apriori.getItemsets(out_txns, .001);
+                Apriori in_apriori = new Apriori();
+                in_apriori.getItemsets(in_txns, .001);
+            });
+
+            try {
+                r.get(timeout_min, TimeUnit.MINUTES);
+            } catch (Exception e) {
+                log.debug("caught {}", e);
+            }
+
             sw.stop();
             log.debug("apriori took {}", sw.elapsed(TimeUnit.MICROSECONDS));
             sw.reset();
@@ -163,8 +193,19 @@ public class BatchAnalyzer extends BaseAnalyzer {
         for(int i = 0; i < iterations; ++i) {
 
             sw.start();
-            DataXRay xr = new DataXRay();
-            xr.compare(or);
+
+            Future r = st.submit((Runnable) () -> {
+                DataXRay xr = new DataXRay();
+                xr.compare(or);
+            });
+
+            try {
+                r.get(timeout_min, TimeUnit.MINUTES);
+            } catch (Exception e) {
+                log.debug("caught {}", e);
+            }
+
+
             sw.stop();
             log.debug("xr took {}", sw.elapsed(TimeUnit.MICROSECONDS));
             sw.reset();
