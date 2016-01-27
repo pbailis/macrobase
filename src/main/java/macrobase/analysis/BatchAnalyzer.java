@@ -9,6 +9,7 @@ import macrobase.analysis.outlier.OutlierDetector;
 import macrobase.analysis.outlier.ZScore;
 import macrobase.analysis.result.AnalysisResult;
 import macrobase.analysis.summary.compare.CubingComparer;
+import macrobase.analysis.summary.compare.DataXRay;
 import macrobase.analysis.summary.compare.DecisionTreeComparer;
 import macrobase.analysis.summary.itemset.Apriori;
 import macrobase.analysis.summary.itemset.FPGrowth;
@@ -83,14 +84,30 @@ public class BatchAnalyzer extends BaseAnalyzer {
         final int iterations = 5;
 
         for(int i = 0; i < iterations; ++i) {
+
+            sw.start();
+            CubingComparer cub = new CubingComparer();
+            cub.compare(or.getInliers());
+            CubingComparer cubo = new CubingComparer();
+            cubo.compare(or.getOutliers());
+            sw.stop();
+            log.debug("cube took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+            sw.reset();
+
+            System.gc();
+
+        }
+
+
+        for(int i = 0; i < iterations; ++i) {
             sw.start();
 
             FPGrowthEmerging fpg = new FPGrowthEmerging();
 
             fpg.getEmergingItemsetsWithMinSupport(or.getInliers(),
                                                   or.getOutliers(),
-                                                  .01,
-                                                  2,
+                                                  .001,
+                                                  3,
                                                   encoder);
             sw.stop();
             log.debug("fpge took {}", sw.elapsed(TimeUnit.MICROSECONDS));
@@ -116,9 +133,9 @@ public class BatchAnalyzer extends BaseAnalyzer {
 
             sw.start();
             FPGrowth out_fpg = new FPGrowth();
-            out_fpg.getItemsets(out_txns, .01);
+            out_fpg.getItemsets(out_txns, .001);
             FPGrowth in_fpg = new FPGrowth();
-            in_fpg.getItemsets(in_txns, .01 / (out_txns.size()));
+            in_fpg.getItemsets(in_txns, .001 / 3);
             sw.stop();
             log.debug("fpg took {}", sw.elapsed(TimeUnit.MICROSECONDS));
             sw.reset();
@@ -131,9 +148,9 @@ public class BatchAnalyzer extends BaseAnalyzer {
 
             sw.start();
             Apriori out_apriori = new Apriori();
-            out_apriori.getItemsets(out_txns, .01);
+            out_apriori.getItemsets(out_txns, .001);
             Apriori in_apriori = new Apriori();
-            in_apriori.getItemsets(in_txns, .01);
+            in_apriori.getItemsets(in_txns, .001);
             sw.stop();
             log.debug("apriori took {}", sw.elapsed(TimeUnit.MICROSECONDS));
             sw.reset();
@@ -141,18 +158,22 @@ public class BatchAnalyzer extends BaseAnalyzer {
             System.gc();
 
         }
+
+
         for(int i = 0; i < iterations; ++i) {
 
             sw.start();
-            CubingComparer cub = new CubingComparer();
-            cub.compare(or);
+            DataXRay xr = new DataXRay();
+            xr.compare(or);
             sw.stop();
-            log.debug("cube took {}", sw.elapsed(TimeUnit.MICROSECONDS));
+            log.debug("xr took {}", sw.elapsed(TimeUnit.MICROSECONDS));
             sw.reset();
 
             System.gc();
 
         }
+
+
 
         return null;
     }

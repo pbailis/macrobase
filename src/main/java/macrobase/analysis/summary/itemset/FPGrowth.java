@@ -479,7 +479,11 @@ public class FPGrowth {
         Map<Integer, Double> frequentCounts = new HashMap<>();
 
         for (Integer i : targetItems) {
-            frequentCounts.put(i, initialCounts.get(i));
+            Double initialCount = initialCounts.get(i);
+            if(initialCount == null) {
+                initialCount = 0.;
+            }
+            frequentCounts.put(i, initialCount);
         }
 
         countTree.setFrequentCounts(frequentCounts);

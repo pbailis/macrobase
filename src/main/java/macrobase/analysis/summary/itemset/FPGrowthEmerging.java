@@ -72,7 +72,7 @@ public class FPGrowthEmerging {
                         ratio = outlierInlierRatio;
                         ratios.put(i, outlierInlierRatio);
                         if(ratio > minRatio){
-                            supportedCounts.put(i, inlierCount.doubleValue());
+                            supportedCounts.put(i, outlierCount.doubleValue());
                         }
                     }
 
@@ -151,6 +151,7 @@ public class FPGrowthEmerging {
                   inliers.size(), newSize, outliers.size());
         inliers = inliers.subList(0, newSize);
         */
+
         List<ItemsetWithCount> matchingInlierCounts = inlierTree.getCounts(inliers,
                                                                            inlierCounts,
                                                                            ratioItemsToCheck,

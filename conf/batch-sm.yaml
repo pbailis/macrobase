@@ -7,8 +7,7 @@ targetHighMetrics: []
 outlierDetectorType: MCD
 
 dbUrl: postgres
-baseQuery: SELECT * FROM mapmatch_history H, sf_datasets D WHERE H.dataset_id = D.id LIMIT 1000000;
-
+baseQuery: SELECT * FROM mapmatch_history H, sf_datasets D WHERE H.dataset_id = D.id LIMIT 100000;
 minSupport: 0.01
 minInlierRatio: 1
 
